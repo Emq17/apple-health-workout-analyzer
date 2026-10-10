@@ -1,69 +1,57 @@
 # Apple Health Workout Analyzer
 
-A privacy-first Python command-line tool for estimating **running cadence (steps per minute)** from an Apple Health XML export. Analyze an entire running workout or a selected time interval.
+A privacy-first **Python command-line tool** for analyzing running and pool-swimming workouts from an Apple Health XML export.
 
-The analysis runs locally. No account, API key, external service, or third-party Python package is required.
+- **Running:** Estimate average cadence (steps per minute) for an entire run or a chosen time interval.
+- **Pool swimming:** Estimate your **first-mile split**, even if you swam farther than a mile, with pace, swimming time, pauses, heart rate, and stroke counts when available.
 
-## Features
-
-- Finds running workouts in an Apple Health export and lists them by date and time.
-- Interactive selection of an entire workout or a custom interval.
-- Estimates steps within the chosen interval, including prorating step-count records that cross its boundaries.
-- Displays one estimated average cadence in steps per minute (SPM).
-- Supports command-line arguments for repeatable analysis.
-- Processes large XML exports incrementally rather than loading the entire file into memory.
+**Version 1 runs locally in Terminal.** No website, mobile app, account, API key, or third-party Python package is required.
 
 ## Requirements
 
 - Python 3.9 or newer
-- An Apple Health export containing running workouts and step-count records
+- An Apple Health `export.xml` file containing the relevant workouts and measurements
+- Terminal (macOS, Linux, or Windows with Python installed)
 
-## Getting started
+## Setup
 
-1. Download or clone this repository.
-2. Export your health data from the Health app on your iPhone: tap your profile picture, then **Export All Health Data**. Unzip the export locally.
-3. Place `export.xml` at `data/export.xml` inside the project folder. Create the `data` folder if needed. **Never commit your personal export.**
-4. From the repository root, run:
+1. Download or clone this repository and open Terminal in the `apple-health-workout-analyzer` folder.
+2. On your iPhone, open **Health**, tap your profile picture, and choose **Export All Health Data**.
+3. Unzip the exported archive on your computer.
+4. Create a `data` folder inside the project if needed, and copy `export.xml` into it, so the path is `data/export.xml`.
+5. Choose a running or swimming command below.
 
-   ```bash
-   python3 src/extract_cadence.py
-   ```
+**Privacy:** Your Apple Health export contains sensitive personal information. Never commit or upload `data/export.xml` to GitHub. You can also leave the export elsewhere on your computer and use the `--file` option.
 
-5. Select a running workout, then enter **1** for the entire workout or **2** for a specific section. Section offsets are measured from the beginning of the workout, for example `00:15` to `08:15`.
+## Running cadence
 
-You can also point to an export elsewhere on your computer:
+Start the interactive running analyzer:
 
 ```bash
+python3 src/extract_cadence.py
+```
+
+Choose a workout, then select either the **entire workout** or a **specific section**. Section times are offsets from the beginning of the workout.
+
+Other commands:
+
+```bash
+# List running workouts
+python3 src/extract_cadence.py --list-workouts
+
+# Analyze the newest listed workout without prompts
+python3 src/extract_cadence.py --workout 1 --non-interactive
+
+# Analyze a specific section (15 seconds through 8 minutes 15 seconds)
+python3 src/extract_cadence.py --workout 1 --start 00:15 --end 08:15 --non-interactive
+
+# Use an export stored elsewhere
 python3 src/extract_cadence.py --file /path/to/export.xml
 ```
 
-## Command-line examples
+If multiple devices contribute overlapping step records, use `--source "EXACT SOURCE NAME"` to select a source. Run `python3 src/extract_cadence.py --help` for the full list of options.
 
-List workouts:
-
-```bash
-python3 src/extract_cadence.py --list-workouts
-```
-
-Analyze a whole workout without prompts:
-
-```bash
-python3 src/extract_cadence.py --workout 1 --non-interactive
-```
-
-Analyze a section without prompts:
-
-```bash
-python3 src/extract_cadence.py --workout 1 --start 00:15 --end 08:15 --non-interactive
-```
-
-For exports with ambiguous step-count sources, use `--source "EXACT SOURCE NAME"` to select one source rather than combining data from multiple devices.
-
-Run `python3 src/extract_cadence.py --help` for all options.
-
-## Example output
-
-*Illustrative values only; not taken from a real person's health data.*
+**Example running output** (fictional):
 
 ```text
 === RUNNING ANALYSIS ===
@@ -74,41 +62,114 @@ Estimated Steps: 1,800
 Analysis Complete!
 ```
 
-## How cadence is estimated
+## Swimming: first-mile analysis
 
-The analyzer identifies exported step-count records overlapping the selected time interval. When a record crosses the interval boundary, its steps are prorated according to the overlapping duration. It then calculates:
+Start the swimming analyzer:
 
-```text
-Estimated average cadence (SPM) = estimated steps / interval duration in minutes
+```bash
+python3 src/analyze_swimming.py
 ```
 
-**Important limitations:** This is an estimate based on exported step counts, not a direct Apple Watch running-cadence sensor measurement. It may differ from the Apple Fitness app. If step-count records are missing for part of the interval, the estimate can be low because the calculation still uses the full selected duration. Records from multiple devices or duplicate/overlapping records may also affect accuracy. Results are intended for personal fitness exploration, not medical use.
+The program lists swimming workouts **newest first**. Enter a workout number to see the first-mile report. If the swim was shorter than one mile, it tells you rather than inventing a split.
 
-## Privacy
+To select a workout directly:
 
-Apple Health exports may contain sensitive personal information. This tool processes files on your own computer and does not send data over the network. Keep real exports in `data/` or outside the repository, and verify they are excluded before publishing. Do not include screenshots of personal workout details or actual exports in Git commits.
+```bash
+# Newest swim
+python3 src/analyze_swimming.py --workout 1
+
+# Second-newest swim
+python3 src/analyze_swimming.py --workout 2
+
+# Read an export stored elsewhere
+python3 src/analyze_swimming.py --file /path/to/export.xml --workout 1
+```
+
+**Example swimming output** (fictional values):
+
+```text
+=== FIRST-MILE SWIMMING REPORT ===
+Mile Time: 1:05:00 (estimated)
+Unpaused Time: 1:02:00
+Swimming Time: 45:00
+Unpaused Rest / Other: 17:00
+Paused Time: 3:00
+Overall Pace: 4:02 /100 m (includes breaks)
+Swimming Pace: 2:48 /100 m (recorded lengths)
+Average Heart Rate: 140 bpm
+Estimated Strokes: 1,100
+Timing categories do not overlap.
+Mile crossing is estimated within a pool length.
+```
+
+**What the swimming results mean:**
+
+| Metric | Meaning |
+| --- | --- |
+| Mile Time | Elapsed time from workout start to the first mile, including breaks |
+| Unpaused Time | Mile time minus identifiable recorded pauses |
+| Swimming Time | Time attributed to swimming pool lengths, excluding identified pauses when the pause history is complete |
+| Unpaused Rest / Other | Unpaused time outside recorded swimming lengths; not necessarily all rest |
+| Paused Time | Time identified from workout pause/resume events |
+| Overall Pace | First-mile elapsed time per 100 meters, including breaks |
+| Swimming Pace | Pace calculated from recorded pool-length timing |
+| Average Heart Rate | Average of available heart-rate readings during the analyzed interval |
+| Estimated Strokes | Stroke count estimated through the first mile, including a proportional partial length when needed |
+
+A **mile means 1,609.344 meters (1,760 yards)**, not 1,500 meters. Because a mile often falls partway through a pool length, the crossing time is estimated. If pause/resume records are incomplete, the program shows a limited breakdown rather than presenting an unsupported exact split. The current swimming tool focuses on **the first mile of pool swims**; it does not yet calculate custom-distance or fastest-mile splits.
+
+## How the calculations work
+
+**Running cadence:** The analyzer finds step-count measurements overlapping the selected interval, prorates measurements crossing its boundaries, and divides estimated steps by the selected interval's duration in minutes. This is an estimate from step-count records, not a direct Apple Watch cadence reading. Missing or overlapping records can affect accuracy.
+
+**Swimming:** The analyzer orders timestamped pool-length distance measurements, adds them until reaching one mile, and estimates the crossing point within the final length. It combines matching stroke-count measurements, heart-rate readings, and workout pause events when available. Swimming time and pause breakdowns depend on the completeness and accuracy of exported measurements.
+
+These results are for personal fitness analysis, not medical use.
+
+## Try running analysis without personal data
+
+The repository includes a fictional Apple Health XML sample for testing the running analyzer:
+
+```bash
+python3 src/extract_cadence.py --file examples/synthetic_sample.xml --workout 1 --non-interactive
+```
+
+This sample is **not** intended to demonstrate the swimming report. Swimming analysis currently requires an export containing suitable swimming workouts and length records.
 
 ## Tests
 
-If the repository includes `tests/test_analyzer.py`, run the tests from the project root:
+Run the existing automated running-analyzer tests from the project root:
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
+
+The swimming analyzer has been exercised against sample calculations and real local exports, but a committed swimming-specific test suite is still planned.
 
 ## Project structure
 
 ```text
 apple-health-workout-analyzer/
 ├── src/
-│   └── extract_cadence.py
+│   ├── extract_cadence.py
+│   ├── analyze_swimming.py
+│   ├── inspect_swimming.py        # Development diagnostics
+│   └── verify_swimming_timing.py  # Development diagnostics
 ├── tests/
 │   └── test_analyzer.py
 ├── examples/
 │   └── synthetic_sample.xml
-├── data/                  # Local exports; do not commit
+├── data/                          # Private exports; ignored by Git
 ├── .gitignore
 └── README.md
 ```
 
-The example and test files are optional for running the analyzer. If you include the synthetic XML example in the public repository, make sure your `.gitignore` allows that specific file while continuing to ignore personal exports.
+The two swimming diagnostic scripts help inspect exported data during development; **regular users only need `analyze_swimming.py`**. If your checkout does not include the diagnostic scripts, they are not required for analysis.
+
+## Privacy
+
+All analysis runs on your computer. The scripts do not upload health data or require network access. Keep real Apple Health exports in the ignored `data/` directory or outside the repository. Before pushing to GitHub, verify that no private exports are staged:
+
+```bash
+git diff --cached --name-only
+```
