@@ -1,0 +1,14 @@
+# Private Apple Health data
+data/
+*.csv
+*.gpx
+*.fit
+*.tcx
+*.zip
+*.xml
+
+# Python files
+__pycache__/
+.venv/
+.DS_Store
+!examples/synthetic_sample.xml
